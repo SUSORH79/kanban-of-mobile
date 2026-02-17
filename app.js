@@ -295,12 +295,12 @@ function renderOFCard(of) {
         <span class="badge-date ${dateBadge.class}">${dateBadge.text}</span>
       </div>
       ${of.notes ? `<div class="card-notes">${of.notes}</div>` : ''}
-      <div class="card-actions">
-        ${of.stage > 0 ? `<button class="btn-card btn-back" onclick="moveOF(${of.uid}, -1)">← Atrás</button>` : ''}
+      <div class="card-actions" style="grid-template-columns: 1fr 1fr 1fr 1fr;">
+        ${of.stage > 0 ? `<button class="btn-card btn-back" onclick="moveOF(${of.uid}, -1)">←</button>` : '<div></div>'}
         <button class="btn-card btn-edit" onclick="editOF(${of.uid})">✏️</button>
         <button class="btn-card btn-problem" onclick="openProblemModal(${of.uid})">⚠️</button>
-        ${of.stage < 4 ? `<button class="btn-card btn-forward" onclick="moveOF(${of.uid}, 1)">Avanzar →</button>` : ''}
-        <button class="btn-card btn-delete" onclick="deleteOF(${of.uid})">🗑️</button>
+        <button class="btn-card btn-pdf" style="background: var(--violet-900); color: white;" onclick="generatePDF(${of.uid})">📄</button>
+        ${of.stage < 4 ? `<button class="btn-card btn-forward" onclick="moveOF(${of.uid}, 1)">→</button>` : '<div></div>'}
       </div>
     </div>
   `;
@@ -370,6 +370,9 @@ function renderDashboard() {
             <div class="summary-label">Tasa de cumplimiento</div>
           </div>
         </div>
+        <button class="settings-btn" style="background: #22c55e; margin-top: 15px; margin-bottom: 0;" onclick="generateGeneralReport()">
+          📄 Generar Informe para Gerencia (PDF)
+        </button>
       </div>
 
       <div class="dashboard-section">
@@ -502,9 +505,210 @@ function handleSearch(event) {
 }
 
 function moveOF(uid, direction) {
-  ofs = ofs.map(o => o.uid === uid ? { ...o, stage: o.stage + direction } : o);
+  ofs = ofs.map(o => {
+    if (o.uid === uid) {
+      const newStage = o.stage + direction;
+      // Guardar fecha de finalización si llega al final, pero no borrar nada
+      const completedDate = (newStage === 4) ? new Date().toISOString() : (o.completedDate || null);
+      return { ...o, stage: newStage, completedDate };
+    }
+    return o;
+  });
   storage.set('kanban-ofs', ofs);
   render();
+}
+
+function generatePDF(uid) {
+  const of = ofs.find(o => o.uid === uid);
+  if (!of) return;
+
+  const ofProblems = getOFProblems(uid);
+  const printContent = `
+    <div style="font-family: sans-serif; padding: 40px; color: #333; max-width: 800px; margin: auto; border: 1px solid #eee; background: white;">
+      <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid #2563eb; padding-bottom: 20px;">
+        <h1 style="margin: 0; font-size: 24px;">INFORME DE FABRICACIÓN</h1>
+        <div style="text-align: right;">
+          <h2 style="margin: 0; color: #2563eb;">${of.id}</h2>
+          <p style="margin: 4px 0; color: #666; font-size: 14px;">Fecha Informe: ${new Date().toLocaleString()}</p>
+        </div>
+      </div>
+      
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin: 30px 0;">
+        <div style="background: #f8fafc; padding: 15px; border-radius: 8px;">
+          <h3 style="border-bottom: 1px solid #cbd5e1; padding-bottom: 8px; margin-top: 0; font-size: 16px;">Detalles del Cliente</h3>
+          <p style="margin: 8px 0;"><strong>Cliente:</strong> ${of.client}</p>
+          <p style="margin: 8px 0;"><strong>Producto:</strong> ${of.furniture}</p>
+          <p style="margin: 8px 0;"><strong>Notas:</strong> <br><span style="color: #64748b;">${of.notes || 'Sin observaciones'}</span></p>
+        </div>
+        <div style="background: #f8fafc; padding: 15px; border-radius: 8px;">
+          <h3 style="border-bottom: 1px solid #cbd5e1; padding-bottom: 8px; margin-top: 0; font-size: 16px;">Estado de Producción</h3>
+          <p style="margin: 8px 0;"><strong>Fecha Entrega:</strong> ${of.date}</p>
+          <p style="margin: 8px 0;"><strong>Prioridad:</strong> <span style="padding: 2px 8px; border-radius: 10px; background: ${of.priority === 'Alta' ? '#fee2e2' : '#fef9c3'}; color: ${of.priority === 'Alta' ? '#991b1b' : '#854d0e'};">${of.priority}</span></p>
+          <p style="margin: 8px 0;"><strong>Etapa Actual:</strong> ${STAGES[of.stage]}</p>
+          ${of.completedDate ? `<p style="margin: 8px 0;"><strong>Finalizado:</strong> ${new Date(of.completedDate).toLocaleDateString()}</p>` : ''}
+        </div>
+      </div>
+
+      <div style="margin: 30px 0;">
+        <h3 style="border-bottom: 1px solid #cbd5e1; padding-bottom: 8px; font-size: 16px;">⚠️ Historial de Incidencias / Errores</h3>
+        ${ofProblems.length > 0 ? `
+          <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px;">
+            <thead>
+              <tr style="background: #e2e8f0;">
+                <th style="border: 1px solid #cbd5e1; padding: 10px; text-align: left;">Tipo de Error</th>
+                <th style="border: 1px solid #cbd5e1; padding: 10px; text-align: left;">Descripción</th>
+                <th style="border: 1px solid #cbd5e1; padding: 10px; text-align: left;">Etapa</th>
+                <th style="border: 1px solid #cbd5e1; padding: 10px; text-align: left;">Fecha</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${ofProblems.map(p => `
+                <tr>
+                  <td style="border: 1px solid #cbd5e1; padding: 10px; font-weight: bold; color: #ef4444;">${p.type}</td>
+                  <td style="border: 1px solid #cbd5e1; padding: 10px;">${p.description}</td>
+                  <td style="border: 1px solid #cbd5e1; padding: 10px;">${STAGES[p.stage]}</td>
+                  <td style="border: 1px solid #cbd5e1; padding: 10px;">${new Date(p.timestamp).toLocaleDateString()}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        ` : '<div style="padding: 20px; text-align: center; color: #15803d; background: #f0fdf4; border-radius: 8px; border: 1px solid #bbf7d0;">No se registraron problemas en esta orden. Producción limpia.</div>'}
+      </div>
+
+      <div style="margin-top: 60px; text-align: center; border-top: 1px solid #eee; padding-top: 20px;">
+        <p style="font-size: 12px; color: #94a3b8;">Informe generado digitalmente por el sistema Kanban O.F.</p>
+      </div>
+    </div>
+  `;
+
+  const printWindow = window.open('', '_blank');
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Informe OF - ${of.id}</title>
+      </head>
+      <body style="margin: 0; background-color: #f1f5f9;">
+        <div class="no-print" style="background: #1e293b; color: white; padding: 20px; text-align: center; font-family: sans-serif; margin-bottom: 20px;">
+          <h3 style="margin: 0 0 10px 0;">Vista Previa de Informe</h3>
+          <button onclick="window.print(); window.close();" style="background: #2563eb; color: white; border: none; padding: 12px 24px; font-weight: bold; cursor: pointer; border-radius: 6px; font-size: 16px;">🖨️ IMPRIMIR O GUARDAR PDF</button>
+        </div>
+        <style>@media print { .no-print { display: none; } body { background: white; } }</style>
+        ${printContent}
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+}
+
+function generateGeneralReport() {
+  const total = ofs.length;
+  const delayed = ofs.filter(o => getDaysLeft(o.date) < 0 && o.stage < 4).length;
+  const urgent = ofs.filter(o => {
+    const days = getDaysLeft(o.date);
+    return days <= 3 && days >= 0 && o.stage < 4;
+  }).length;
+  const totalProblems = problems.length;
+
+  const stageStats = STAGES.map((s, i) => ({
+    name: s,
+    count: ofs.filter(o => o.stage === i).length
+  }));
+
+  const printContent = `
+    <div style="font-family: sans-serif; padding: 40px; color: #333; max-width: 900px; margin: auto; background: white;">
+      <div style="display: flex; justify-content: space-between; align-items: start; border-bottom: 4px solid #1e293b; padding-bottom: 20px; margin-bottom: 30px;">
+        <div>
+          <h1 style="margin: 0; font-size: 28px; color: #1e293b;">REPORTE GENERAL DE PRODUCCIÓN</h1>
+          <p style="margin: 5px 0; color: #64748b;">Estado actual de la fábrica y órdenes en curso</p>
+        </div>
+        <div style="text-align: right;">
+          <p style="margin: 0; font-weight: bold;">Fecha: ${new Date().toLocaleDateString()}</p>
+          <p style="margin: 0; color: #64748b;">Hora: ${new Date().toLocaleTimeString()}</p>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 40px;">
+        <div style="background: #1e293b; color: white; padding: 15px; border-radius: 8px; text-align: center;">
+          <div style="font-size: 24px; font-weight: bold;">${total}</div>
+          <div style="font-size: 11px; text-transform: uppercase; margin-top: 5px;">Total O.F.</div>
+        </div>
+        <div style="background: #ef4444; color: white; padding: 15px; border-radius: 8px; text-align: center;">
+          <div style="font-size: 24px; font-weight: bold;">${delayed}</div>
+          <div style="font-size: 11px; text-transform: uppercase; margin-top: 5px;">Retrasadas</div>
+        </div>
+        <div style="background: #eab308; color: white; padding: 15px; border-radius: 8px; text-align: center;">
+          <div style="font-size: 24px; font-weight: bold;">${urgent}</div>
+          <div style="font-size: 11px; text-transform: uppercase; margin-top: 5px;">Urgentes</div>
+        </div>
+        <div style="background: #fb923c; color: white; padding: 15px; border-radius: 8px; text-align: center;">
+          <div style="font-size: 24px; font-weight: bold;">${totalProblems}</div>
+          <div style="font-size: 11px; text-transform: uppercase; margin-top: 5px;">Incidencias</div>
+        </div>
+      </div>
+
+      <h3 style="border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; font-size: 18px;">Resumen por Etapas</h3>
+      <div style="margin-bottom: 40px;">
+        ${stageStats.map(s => `
+          <div style="display: flex; align-items: center; margin-bottom: 10px;">
+            <div style="width: 200px; font-size: 14px;">${s.name}</div>
+            <div style="flex: 1; height: 20px; background: #f1f5f9; border-radius: 10px; overflow: hidden;">
+              <div style="width: ${total > 0 ? (s.count / total) * 100 : 0}%; height: 100%; background: #2563eb;"></div>
+            </div>
+            <div style="width: 40px; text-align: right; font-weight: bold; font-size: 14px; margin-left: 10px;">${s.count}</div>
+          </div>
+        `).join('')}
+      </div>
+
+      <h3 style="border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; font-size: 18px;">Listado de Producción en Curso</h3>
+      <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+        <thead>
+          <tr style="background: #e2e8f0; text-align: left;">
+            <th style="border: 1px solid #cbd5e1; padding: 8px;">O.F.</th>
+            <th style="border: 1px solid #cbd5e1; padding: 8px;">Cliente</th>
+            <th style="border: 1px solid #cbd5e1; padding: 8px;">Producto</th>
+            <th style="border: 1px solid #cbd5e1; padding: 8px;">Etapa</th>
+            <th style="border: 1px solid #cbd5e1; padding: 8px;">Prioridad</th>
+            <th style="border: 1px solid #cbd5e1; padding: 8px;">Incid.</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${ofs.filter(o => o.stage < 4).sort((a, b) => new Date(a.date) - new Date(b.date)).map(o => `
+            <tr>
+              <td style="border: 1px solid #cbd5e1; padding: 8px; font-weight: bold;">${o.id}</td>
+              <td style="border: 1px solid #cbd5e1; padding: 8px;">${o.client}</td>
+              <td style="border: 1px solid #cbd5e1; padding: 8px;">${o.furniture}</td>
+              <td style="border: 1px solid #cbd5e1; padding: 8px;">${STAGES[o.stage]}</td>
+              <td style="border: 1px solid #cbd5e1; padding: 8px;">${o.priority}</td>
+              <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center;">${getOFProblems(o.uid).length}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+
+      <div style="margin-top: 60px; padding-top: 20px; border-top: 1px solid #eee; font-size: 11px; color: #94a3b8; display: flex; justify-content: space-between;">
+        <span>Documento reservado para Gerencia</span>
+        <span>Página 1 de 1</span>
+      </div>
+    </div>
+  `;
+
+  const printWindow = window.open('', '_blank');
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Reporte Gerencia - Kanban O.F.</title>
+      </head>
+      <body style="margin: 0; background-color: #f1f5f9;">
+        <div class="no-print" style="background: #1e293b; color: white; padding: 20px; text-align: center; font-family: sans-serif; margin-bottom: 20px;">
+          <h3 style="margin: 0 0 10px 0;">INFORME GENERAL PARA GERENCIA</h3>
+          <button onclick="window.print(); window.close();" style="background: #22c55e; color: white; border: none; padding: 12px 24px; font-weight: bold; cursor: pointer; border-radius: 6px; font-size: 16px;">🖨️ IMPRIMIR / GUARDAR PDF</button>
+        </div>
+        <style>@media print { .no-print { display: none; } body { background: white; } }</style>
+        ${printContent}
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
 }
 
 function deleteOF(uid) {
