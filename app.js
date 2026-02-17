@@ -295,11 +295,12 @@ function renderOFCard(of) {
         <span class="badge-date ${dateBadge.class}">${dateBadge.text}</span>
       </div>
       ${of.notes ? `<div class="card-notes">${of.notes}</div>` : ''}
-      <div class="card-actions" style="grid-template-columns: 1fr 1fr 1fr 1fr;">
+      <div class="card-actions" style="grid-template-columns: repeat(6, 1fr);">
         ${of.stage > 0 ? `<button class="btn-card btn-back" onclick="moveOF(${of.uid}, -1)">←</button>` : '<div></div>'}
         <button class="btn-card btn-edit" onclick="editOF(${of.uid})">✏️</button>
         <button class="btn-card btn-problem" onclick="openProblemModal(${of.uid})">⚠️</button>
         <button class="btn-card btn-pdf" style="background: var(--violet-900); color: white;" onclick="generatePDF(${of.uid})">📄</button>
+        <button class="btn-card btn-delete" onclick="deleteOF(${of.uid})">🗑️</button>
         ${of.stage < 4 ? `<button class="btn-card btn-forward" onclick="moveOF(${of.uid}, 1)">→</button>` : '<div></div>'}
       </div>
     </div>
@@ -785,6 +786,18 @@ function saveOF() {
     return;
   }
 
+  // Prevent Duplicates
+  const isDuplicate = ofs.some(o => o.id.toLowerCase() === data.id.toLowerCase() && o.uid !== editingUid);
+  if (isDuplicate) {
+    alert('❌ Error: Ya existe una O.F. con este número (' + data.id + ').');
+    return;
+  }
+
+  if (!data.id || !data.client || !data.furniture || !data.date) {
+    alert('Por favor completa todos los campos obligatorios');
+    return;
+  }
+
   if (editingUid) {
     ofs = ofs.map(o => o.uid === editingUid ? { ...o, ...data } : o);
   } else {
@@ -853,7 +866,11 @@ function init() {
         <form id="of-form" onsubmit="event.preventDefault(); saveOF();">
           <div class="form-group">
             <label class="form-label">Nº O.F. *</label>
-            <input type="text" name="id_input" class="form-input" placeholder="Ej: OF-2024-001" required>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <input type="text" name="id_input" id="of-id-input" class="form-input" placeholder="Ej: OF-2024-001" required style="flex: 1;">
+              <button type="button" class="btn-scan" onclick="startScanner()">📷 Escanear</button>
+            </div>
+            <div id="reader"></div>
           </div>
           <div class="form-group">
             <label class="form-label">Cliente *</label>
@@ -919,6 +936,37 @@ function init() {
   if (notificationsEnabled) {
     scheduleNotificationCheck();
   }
+}
+
+// Scanner Functions
+let html5QrcodeScanner = null;
+
+function startScanner() {
+  const readerDiv = document.getElementById('reader');
+  if (!html5QrcodeScanner) {
+    html5QrcodeScanner = new Html5Qrcode("reader");
+  }
+
+  const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+  html5QrcodeScanner.start({ facingMode: "environment" }, config, onScanSuccess)
+    .catch(err => {
+      console.error("Error starting scanner", err);
+      alert("No se pudo iniciar la cámara. Asegúrate de dar permisos y usar HTTPS/localhost.");
+    });
+}
+
+function onScanSuccess(decodedText, decodedResult) {
+  document.getElementById('of-id-input').value = decodedText;
+
+  // Stop scanning
+  html5QrcodeScanner.stop().then(() => {
+    // QR Code scanning is stopped.
+    console.log("Scanner stopped");
+  }).catch(err => {
+    // Stop failed, handle it.
+    console.error("Failed to stop scanner", err);
+  });
 }
 
 //Start app when DOM is ready

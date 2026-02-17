@@ -322,6 +322,7 @@ body {
   text-overflow: ellipsis;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
 }
 
@@ -772,4 +773,27 @@ body {
   .modal {
     padding-bottom: max(20px, env(safe-area-inset-bottom));
   }
+}
+
+/* Scanner */
+#reader {
+  width: 100%;
+  margin-bottom: 15px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: black;
+}
+
+.btn-scan {
+  background: var(--slate-600);
+  color: white;
+  border: 1px solid var(--slate-500);
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 5px;
 }
