@@ -659,31 +659,45 @@ function generateGeneralReport() {
         `).join('')}
       </div>
 
-      <h3 style="border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; font-size: 18px;">Listado de Producción en Curso</h3>
-      <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
-        <thead>
-          <tr style="background: #e2e8f0; text-align: left;">
-            <th style="border: 1px solid #cbd5e1; padding: 8px;">O.F.</th>
-            <th style="border: 1px solid #cbd5e1; padding: 8px;">Cliente</th>
-            <th style="border: 1px solid #cbd5e1; padding: 8px;">Producto</th>
-            <th style="border: 1px solid #cbd5e1; padding: 8px;">Etapa</th>
-            <th style="border: 1px solid #cbd5e1; padding: 8px;">Prioridad</th>
-            <th style="border: 1px solid #cbd5e1; padding: 8px;">Incid.</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${ofs.filter(o => o.stage < 4).sort((a, b) => new Date(a.date) - new Date(b.date)).map(o => `
-            <tr>
-              <td style="border: 1px solid #cbd5e1; padding: 8px; font-weight: bold;">${o.id}</td>
-              <td style="border: 1px solid #cbd5e1; padding: 8px;">${o.client}</td>
-              <td style="border: 1px solid #cbd5e1; padding: 8px;">${o.furniture}</td>
-              <td style="border: 1px solid #cbd5e1; padding: 8px;">${STAGES[o.stage]}</td>
-              <td style="border: 1px solid #cbd5e1; padding: 8px;">${o.priority}</td>
-              <td style="border: 1px solid #cbd5e1; padding: 8px; text-align: center;">${getOFProblems(o.uid).length}</td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
+      <h3 style="border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; font-size: 18px;">Ubicación de Órdenes Activas (Producción)</h3>
+      ${STAGES.slice(0, 4).map((stageName, stageIdx) => {
+    const stageOFs = ofs.filter(o => o.stage === stageIdx);
+    if (stageOFs.length === 0) return '';
+
+    return `
+          <div style="margin-bottom: 20px;">
+            <h4 style="margin: 0 0 10px 0; color: #2563eb; background: #f1f5f9; padding: 8px; border-radius: 4px; font-size: 14px;">📍 ETAPA: ${stageName.toUpperCase()}</h4>
+            <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+              <thead>
+                <tr style="background: #f8fafc; text-align: left;">
+                  <th style="border: 1px solid #cbd5e1; padding: 6px; width: 80px;">O.F.</th>
+                  <th style="border: 1px solid #cbd5e1; padding: 6px; width: 150px;">Cliente</th>
+                  <th style="border: 1px solid #cbd5e1; padding: 6px;">Producto</th>
+                  <th style="border: 1px solid #cbd5e1; padding: 6px; width: 80px;">Entrega</th>
+                  <th style="border: 1px solid #cbd5e1; padding: 6px; width: 60px;">Prior.</th>
+                  <th style="border: 1px solid #cbd5e1; padding: 6px; width: 40px; text-align: center;">⚠️</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${stageOFs.sort((a, b) => new Date(a.date) - new Date(b.date)).map(o => `
+                  <tr>
+                    <td style="border: 1px solid #cbd5e1; padding: 6px; font-weight: bold;">${o.id}</td>
+                    <td style="border: 1px solid #cbd5e1; padding: 6px;">${o.client}</td>
+                    <td style="border: 1px solid #cbd5e1; padding: 6px;">${o.furniture}</td>
+                    <td style="border: 1px solid #cbd5e1; padding: 6px; ${getDaysLeft(o.date) < 0 ? 'color: #ef4444; font-weight: bold;' : ''}">${o.date}</td>
+                    <td style="border: 1px solid #cbd5e1; padding: 6px;">${o.priority}</td>
+                    <td style="border: 1px solid #cbd5e1; padding: 6px; text-align: center;">${getOFProblems(o.uid).length || '-'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+  }).join('')}
+
+      <div style="margin-top: 20px; font-style: italic; font-size: 11px; color: #64748b;">
+        * Solo se muestran las etapas con órdenes activas.
+      </div>
 
       <div style="margin-top: 60px; padding-top: 20px; border-top: 1px solid #eee; font-size: 11px; color: #94a3b8; display: flex; justify-content: space-between;">
         <span>Documento reservado para Gerencia</span>
