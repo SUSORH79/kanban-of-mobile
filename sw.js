@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kanban-of-v1';
+const CACHE_NAME = 'kanban-of-v2';
 const urlsToCache = [
     '/',
     '/index.html',
@@ -36,26 +36,27 @@ self.addEventListener('activate', event => {
     self.clients.claim();
 });
 
-// Fetch with cache-first strategy
+// Fetch strategy: Stale-while-revalidate for assets
 self.addEventListener('fetch', event => {
+    // Skip non-GET requests and external resources if needed
+    if (event.request.method !== 'GET') return;
+
     event.respondWith(
-        caches.match(event.request)
-            .then(response => {
-                if (response) {
-                    return response;
-                }
-                return fetch(event.request).then(response => {
-                    // Don't cache if not a valid response
-                    if (!response || response.status !== 200 || response.type !== 'basic') {
-                        return response;
+        caches.open(CACHE_NAME).then(cache => {
+            return cache.match(event.request).then(cachedResponse => {
+                const fetchedResponse = fetch(event.request).then(networkResponse => {
+                    // Update cache for next time
+                    if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+                        cache.put(event.request, networkResponse.clone());
                     }
-                    const responseToCache = response.clone();
-                    caches.open(CACHE_NAME)
-                        .then(cache => {
-                            cache.put(event.request, responseToCache);
-                        });
-                    return response;
+                    return networkResponse;
+                }).catch(() => {
+                    // Fail silently if network is down
                 });
-            })
+
+                // Return cached response immediately if available, otherwise wait for network
+                return cachedResponse || fetchedResponse;
+            });
+        })
     );
 });

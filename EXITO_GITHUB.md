@@ -69,6 +69,7 @@ Si haces cambios en los archivos locales:
 ```
 
 Los cambios aparecerán en la URL de GitHub Pages automáticamente.
+github repository or user acount
 
 ---
 

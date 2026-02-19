@@ -1,5 +1,5 @@
 // Constants
-const STAGES = ["Pendiente", "Corte / Mecanizado", "Ensamblaje / Montaje", "Control de Calidad", "Expedición"];
+const STAGES = ["Oficina", "Seccionadora", "Pantógrafos", "Montaje", "Expedición"];
 const PRIORITIES = ["Alta", "Media", "Baja"];
 const PROBLEM_TYPES = ["Error de mecanizado", "Material defectuoso", "Retraso", "Otro"];
 
@@ -408,6 +408,9 @@ function renderSettings() {
         <button class="settings-btn" onclick="importData()">
           📂 Importar datos (JSON)
         </button>
+        <button class="settings-btn" style="background: var(--amber-700); margin-top: 10px;" onclick="forceUpdate()">
+          🔄 Forzar actualización profunda
+        </button>
       </div>
 
       <div class="settings-section">
@@ -433,7 +436,7 @@ function renderSettings() {
           </div>
           <div class="info-item">
             <span class="info-label">Versión:</span>
-            <span class="info-value">2.0</span>
+            <span class="info-value">2.1</span>
           </div>
         </div>
       </div>
@@ -782,20 +785,17 @@ function saveOF() {
   };
 
   if (!data.id || !data.client || !data.furniture || !data.date) {
-    alert('Por favor completa todos los campos obligatorios');
+    alert('⚠️ Por favor completa todos los campos obligatorios (*)');
     return;
   }
 
-  // Prevent Duplicates
-  const isDuplicate = ofs.some(o => o.id.toLowerCase() === data.id.toLowerCase() && o.uid !== editingUid);
-  if (isDuplicate) {
-    alert('❌ Error: Ya existe una O.F. con este número (' + data.id + ').');
-    return;
-  }
-
-  if (!data.id || !data.client || !data.furniture || !data.date) {
-    alert('Por favor completa todos los campos obligatorios');
-    return;
+  // Prevent duplicate O.F. (only when creating new)
+  if (!editingUid) {
+    const isDuplicate = ofs.some(o => o.id.toLowerCase() === data.id.toLowerCase());
+    if (isDuplicate) {
+      alert(`❌ Error: Ya existe una O.F. con el número ${data.id}`);
+      return;
+    }
   }
 
   if (editingUid) {
@@ -967,6 +967,23 @@ function onScanSuccess(decodedText, decodedResult) {
     // Stop failed, handle it.
     console.error("Failed to stop scanner", err);
   });
+}
+
+// Helper to force clean update
+async function forceUpdate() {
+  if (confirm('¿Forzar actualización? Esto limpiará la caché y recargará la aplicación.')) {
+    if ('serviceWorker' in navigator) {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      for (let registration of registrations) {
+        await registration.unregister();
+      }
+    }
+    const cacheNames = await caches.keys();
+    for (let name of cacheNames) {
+      await caches.delete(name);
+    }
+    window.location.reload(true);
+  }
 }
 
 //Start app when DOM is ready
