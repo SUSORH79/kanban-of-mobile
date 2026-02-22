@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panel Responsable - Sistema CNC</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/manager.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+
+<body class="manager-page">
+    <div class="container-fluid">
+        <header class="page-header">
+            <div>
+                <a href="index.html" class="back-link">← Volver</a>
+                <h1>📊 Panel de Gestión CNC</h1>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-secondary" onclick="exportBackup()" title="Exportar copia de seguridad">
+                    💾 Exportar Backup
+                </button>
+                <button class="btn btn-secondary" onclick="document.getElementById('importBackupFile').click()"
+                    title="Importar copia de seguridad">
+                    📥 Importar Backup
+                </button>
+                <input type="file" id="importBackupFile" accept=".json" style="display: none;"
+                    onchange="importBackup(event)">
+                <button class="btn btn-secondary" onclick="dataManager.clearAllData(); location.reload();">
+                    🗑️ Limpiar Datos
+                </button>
+                <button class="btn btn-primary" onclick="showReportModal()">
+                    📄 Generar Reporte
+                </button>
+            </div>
+        </header>
+
+        <!-- Tabs de navegación -->
+        <nav class="tabs">
+            <button class="tab active" onclick="showTab('register')">
+                📝 Registrar
+            </button>
+            <button class="tab" onclick="showTab('dashboard')">
+                Dashboard
+            </button>
+            <button class="tab" onclick="showTab('incidents')">
+                Registros
+            </button>
+            <button class="tab" onclick="showTab('ops')">
+                Gestión OPs
+            </button>
+            <button class="tab" onclick="showTab('operators')">
+                Operarios
+            </button>
+            <button class="tab" onclick="showTab('stats')">
+                Estadísticas
+            </button>
+        </nav>
+
+
+        <!-- TAB 0: REGISTRAR DATOS -->
+        <div id="tab-register" class="tab-content active">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="card-title">📝 Registrar desde Formulario Físico</h2>
+                </div>
+                <div class="card-body">
+                    <form id="registerForm" onsubmit="saveRegistration(event)">
+                        <!-- Datos Básicos -->
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Máquina CNC *</label>
+                                <select id="reg_machine" class="form-input" required>
+                                    <option value="">Seleccionar máquina...</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label class="form-label">Nº Orden de Producción *</label>
+                                <select id="reg_op" class="form-input" required>
+                                    <option value="">Seleccionar OP...</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Operarios -->
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Operario CNC *</label>
+                                <select id="reg_cnc_operator" class="form-input" required>
+                                    <option value="">Seleccionar operario CNC...</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- ¿Hubo Problemas? -->
+                        <div class="form-group">
+                            <label class="form-label">¿Se detectaron problemas? *</label>
+                            <div class="radio-group">
+                                <label class="radio-option">
+                                    <input type="radio" name="hasProblems" value="no" checked
+                                        onchange="toggleProblemFields()">
+                                    <span>✅ No, todo correcto</span>
+                                </label>
+                                <label class="radio-option">
+                                    <input type="radio" name="hasProblems" value="yes" onchange="toggleProblemFields()">
+                                    <span>⚠️ Sí, hubo incidencias</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Campos de Problema (ocultos inicialmente) -->
+                        <div id="problemFields" style="display: none;">
+                            <label class="checkbox-option">
+                                <input type="checkbox" name="problemType" value="Falta de material">
+                                <span>Falta de material</span>
+                            </label>
+                            <label class="checkbox-option">
+                                <input type="checkbox" name="problemType" value="Programa CNC equivocado">
+                                <span>Programa CNC equivocado</span>
+                            </label>
+                            <label class="checkbox-option">
+                                <input type="checkbox" name="problemType" value="Archivos incorrectos">
+                                <span>Archivos incorrectos</span>
+                            </label>
+                            <label class="checkbox-option">
+                                <input type="checkbox" name="problemType" value="Mal mecanizado">
+                                <span>Mal mecanizado</span>
+                            </label>
+                            <label class="checkbox-option">
+                                <input type="checkbox" name="problemType" value="Material defectuoso">
+                                <span>Material defectuoso</span>
+                            </label>
+                            <label class="checkbox-option">
+                                <input type="checkbox" name="problemType" value="Otros">
+                                <span>Otros</span>
+                            </label>
+                        </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Descripción del Problema</label>
+                    <textarea id="reg_description" class="form-input" rows="4"
+                        placeholder="Describe qué ocurrió, cómo se detectó y qué se hizo..."></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Piezas Afectadas</label>
+                        <input type="number" id="reg_affected_pieces" class="form-input" min="0" value="0">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Severidad</label>
+                        <div class="radio-group">
+                            <label class="radio-option">
+                                <input type="radio" name="severity" value="low">
+                                <span>🟢 Baja</span>
+                            </label>
+                            <label class="radio-option">
+                                <input type="radio" name="severity" value="medium" checked>
+                                <span>🟡 Media</span>
+                            </label>
+                            <label class="radio-option">
+                                <input type="radio" name="severity" value="high">
+                                <span>🟠 Alta</span>
+                            </label>
+                            <label class="radio-option">
+                                <input type="radio" name="severity" value="critical">
+                                <span>🔴 Crítica</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Botones -->
+            <div class="form-actions" style="margin-top: 2rem; display: flex; gap: 1rem; justify-content: flex-end;">
+                <button type="button" class="btn btn-secondary" onclick="resetRegistrationForm()">
+                    🔄 Limpiar
+                </button>
+                <button type="submit" class="btn btn-primary">
+                    💾 Guardar Registro
+                </button>
+            </div>
+            </form>
+        </div>
+    </div>
+    </div>
+
+    <!-- TAB 1: DASHBOARD -->
+    <div id="tab-dashboard" class="tab-content">
+        <!-- KPI Cards -->
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-icon">📋</div>
+                <div class="kpi-content">
+                    <h3>Total Registros</h3>
+                    <div class="kpi-value" id="kpi-total">0</div>
+                    <p class="kpi-subtitle">Esta semana</p>
+                </div>
+            </div>
+
+            <div class="kpi-card warning">
+                <div class="kpi-icon">⚠️</div>
+                <div class="kpi-content">
+                    <h3>Con Incidencias</h3>
+                    <div class="kpi-value" id="kpi-incidents">0</div>
+                    <p class="kpi-subtitle" id="kpi-incidents-percent">0%</p>
+                </div>
+            </div>
+
+            <div class="kpi-card success">
+                <div class="kpi-icon">📦</div>
+                <div class="kpi-content">
+                    <h3>Total Piezas Afectadas</h3>
+                    <div class="kpi-value" id="kpi-affected">0</div>
+                    <p class="kpi-subtitle">Esta semana</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gráficos -->
+        <div class="charts-grid">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Registros por Máquina</h3>
+                </div>
+                <canvas id="chartByMachine"></canvas>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Tipos de Problema</h3>
+                </div>
+                <canvas id="chartByType"></canvas>
+            </div>
+        </div>
+
+        <!-- Nuevos Gráficos: Piezas Afectadas -->
+        <div class="charts-grid">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Piezas Afectadas por Máquina</h3>
+                </div>
+                <canvas id="chartAffectedByMachine"></canvas>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Piezas Afectadas por Tipo de Problema</h3>
+                </div>
+                <canvas id="chartAffectedByType"></canvas>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Top 5 Problemas de la Semana</h3>
+            </div>
+            <div id="topProblems" class="top-problems"></div>
+        </div>
+    </div>
+
+    <!-- TAB 2: REGISTROS -->
+    <div id="tab-incidents" class="tab-content">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Listado de Registros</h3>
+            </div>
+
+            <!-- Filtros -->
+            <div class="filters">
+                <div class="form-group">
+                    <label class="form-label">Período</label>
+                    <select id="filterPeriod" class="form-select" onchange="filterIncidents()">
+                        <option value="week">Última semana</option>
+                        <option value="month">Último mes</option>
+                        <option value="all">Todos</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Máquina</label>
+                    <select id="filterMachine" class="form-select" onchange="filterIncidents()">
+                        <option value="">Todas</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Estado</label>
+                    <select id="filterStatus" class="form-select" onchange="filterIncidents()">
+                        <option value="">Todos</option>
+                        <option value="pending">Pendientes</option>
+                        <option value="reviewed">Revisados</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Buscar OP</label>
+                    <input type="text" id="filterOP" class="form-input" placeholder="OP-XXXX"
+                        oninput="filterIncidents()">
+                </div>
+            </div>
+
+            <!-- Tabla de incidencias -->
+            <div id="incidentsList" class="incidents-list"></div>
+        </div>
+    </div>
+
+    <!-- TAB 3: GESTIÓN DE OPs -->
+    <div id="tab-ops" class="tab-content">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Gestión de Órdenes de Producción</h3>
+                <button class="btn btn-primary" onclick="showNewOPModal()">
+                    ➕ Nueva OP
+                </button>
+            </div>
+
+            <!-- Buscador de OPs -->
+            <div class="filters">
+                <div class="form-group">
+                    <label class="form-label">Buscar OP</label>
+                    <input type="text" id="searchOPs" class="form-input"
+                        placeholder="Buscar por OP, descripción o cliente..." oninput="filterOPs()">
+                </div>
+            </div>
+
+            <!-- Listado de OPs -->
+            <div id="opsList" class="ops-list"></div>
+        </div>
+    </div>
+
+    <!-- TAB 4: GESTIÓN DE OPERARIOS -->
+    <div id="tab-operators" class="tab-content">
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Gestión de Operarios</h3>
+                <button class="btn btn-primary" onclick="showNewOperatorModal()">
+                    ➕ Nuevo Operario
+                </button>
+            </div>
+
+            <!-- Buscador de Operarios -->
+            <div class="filters">
+                <div class="form-group">
+                    <label class="form-label">Buscar Operario</label>
+                    <input type="text" id="searchOperators" class="form-input" placeholder="Buscar por nombre..."
+                        oninput="filterOperators()">
+                </div>
+            </div>
+
+            <!-- Listado de Operarios -->
+            <div id="operatorsList" class="ops-list"></div>
+        </div>
+    </div>
+
+    <!-- TAB 5: ESTADÍSTICAS -->
+    <div id="tab-stats" class="tab-content">
+        <div class="stats-grid">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Severidad de Incidencias</h3>
+                </div>
+                <canvas id="chartBySeverity"></canvas>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Rendimiento por Operario</h3>
+                </div>
+                <div id="operatorStats" class="operator-stats"></div>
+            </div>
+        </div>
+
+
+    </div>
+    </div>
+
+    <!-- Modal de Reporte -->
+    <div id="reportModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Generar Reporte</h2>
+                <button class="modal-close" onclick="closeReportModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label">Tipo de Reporte</label>
+                    <select id="reportType" class="form-select">
+                        <option value="weekly">Reporte Semanal</option>
+                        <option value="monthly">Reporte Mensual</option>
+                        <option value="custom">Personalizado</option>
+                    </select>
+                </div>
+
+                <div id="customDateRange" class="hidden">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Desde</label>
+                            <input type="date" id="reportDateFrom" class="form-input">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Hasta</label>
+                            <input type="date" id="reportDateTo" class="form-input">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-option">
+                        <input type="checkbox" id="reportIncludeCharts" checked>
+                        <span>Incluir gráficos</span>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeReportModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="generateReport()">
+                    📄 Generar Reporte
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Nueva/Editar OP -->
+    <div id="opModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="opModalTitle">Nueva Orden de Producción</h2>
+                <button class="modal-close" onclick="closeOPModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="opEditId" value="">
+
+                <div class="form-group">
+                    <label class="form-label">ID de OP *</label>
+                    <input type="text" id="opId" class="form-input" placeholder="OP-XXXX">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Descripción *</label>
+                    <input type="text" id="opDescription" class="form-input" placeholder="Ej: LATERAL MUEBLE COCINA">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Cliente *</label>
+                    <input type="text" id="opClient" class="form-input" placeholder="Nombre del cliente">
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Cantidad (piezas) *</label>
+                        <input type="number" id="opQuantity" class="form-input" min="1" value="1">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Material *</label>
+                        <input type="text" id="opMaterial" class="form-input" placeholder="Ej: MDF 19mm">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Programa CNC</label>
+                    <input type="text" id="opProgram" class="form-input" placeholder="archivo.nc (opcional)">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeOPModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="saveOP()">
+                    💾 Guardar OP
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Detalle de Incidencia -->
+    <div id="incidentDetailModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Detalle de Incidencia</h2>
+                <button class="modal-close" onclick="closeIncidentDetailModal()">×</button>
+            </div>
+            <div class="modal-body" id="incidentDetailContent">
+                <!-- Se llenará dinámicamente -->
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeIncidentDetailModal()">Cerrar</button>
+                <button class="btn btn-success" id="markReviewedBtn" onclick="markAsReviewed()">
+                    ✓ Marcar como Revisado
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Nuevo/Editar Operario -->
+    <div id="operatorModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="operatorModalTitle">Nuevo Operario</h2>
+                <button class="modal-close" onclick="closeOperatorModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="operatorEditId" value="">
+
+                <div class="form-group">
+                    <label class="form-label">Nombre del Operario *</label>
+                    <input type="text" id="operatorName" class="form-input" placeholder="Ej: Juan Pérez">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeOperatorModal()">Cancelar</button>
+                <button class="btn btn-primary" onclick="saveOperator()">
+                    💾 Guardar Operario
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/data.js"></script>
+    <script src="js/manager.js"></script>
+    <script src="js/charts.js"></script>
+</body>
+
+</html>
